@@ -1,0 +1,30 @@
+{
+  "name": "swd-deploy",
+  "version": "1.0.5",
+  "description": "swd-deploy 前端自动化部署工具, 一键部署",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "deploy",
+    "swd-deploy",
+    "前端自动化部署",
+    "ssh"
+  ],
+  "author": "zll",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^4.0.0",
+    "compressing": "^1.5.1",
+    "inquirer": "^7.1.0",
+    "node-ssh": "^10.0.2",
+    "ora": "^4.0.4",
+    "shelljs": "^0.8.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zlluGitHub/swd-deploy"
+  },
+  "homepage": "https://github.com/zlluGitHub/swd-deploy"
+}
