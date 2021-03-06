@@ -2,7 +2,7 @@ const pathHierarchy = '../../'     //脚本到项目的层级  项目/node_modul
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
 const errorLog = log => console.log(chalk.red(`✘ ${log}`))
-const warningLog = log => console.log(chalk.yellow(`◎ ${log}`))
+// const warningLog = log => console.log(chalk.yellow(`◎ ${log}`))
 const successLog = log => console.log(chalk.green(`✔ ${log}`))
 
 const chalk = require('chalk') //命令行颜色
@@ -12,7 +12,7 @@ const shell = require('shelljs') // 执行shell命令
 const node_ssh = require('node-ssh') // ssh连接服务器
 const inquirer = require('inquirer') //命令行交互
 const zipFile = require('compressing') // 压缩zip
-const fs = require('fs') // nodejs内置文件模块
+// const fs = require('fs') // nodejs内置文件模块
 const path = require('path') // nodejs内置路径模块
 const SSH = new node_ssh()
 let CONFIG = {};
@@ -26,7 +26,6 @@ try {
 console.log(chalk.green(`☺ 欢迎使用自动部署工具！`))
 
 let config = {} // 用于保存 inquirer 命令行交互后选择正式|测试版的配置
-
 
 //文件夹目录
 let distDir = "", distZipPath = "";
@@ -86,7 +85,6 @@ const connectSSH = async () => {
 
 //线上执行命令
 /**
- * 
  * @param {String} command 命令操作 如 ls
  */
 const runCommand = async (command) => {
@@ -130,7 +128,6 @@ const clearOldFile = async () => {
     // await mkdirDir()
     process.exit() //退出流程
   })
-  // console.log();
 }
 
 
