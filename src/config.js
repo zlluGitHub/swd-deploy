@@ -15,7 +15,8 @@ module.exports = Object.freeze({
     wwwPath: '/root/test1', // 需要上传的服务器目录地址 如 /usr/local/nginx/html/prodName
     distFolder: 'dist', // 打包后的文件夹 默认 /dist
     loadingStyle: 'arrow4',
-    buildShell: 'npm run build' // 自定义打包命令 若为空则会直接部署，不会打包
+    buildShell: 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
+    readyTimeout: 60000 // 超时时间
   },
   production: {//正式
     sshIp: '152.136.101.31',

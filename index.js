@@ -72,6 +72,9 @@ const connectSSH = async () => {
     username: config.sshUserName,
     [type]: data
   }
+  if (config.readyTimeout) {
+    opt.readyTimeout = config.readyTimeout
+  }
   try {
     await SSH.connect(opt)
     successLog('SSH连接成功!')
