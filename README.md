@@ -8,25 +8,18 @@
 ```bash
 npm i swd-deploy --save
 ```
-## 快速使用
+## 快速使用 
+
 ### 第一步
 在你的项目 `package.json` 文件中的 `scripts` 字段中添加如下内容：
-
-```json
-"deploy": "node ./node_modules/swd-deploy/index"
-```
-例如：
-
 ```json
 {
   "scripts": {
-    "deploy": "node ./node_modules/swd-deploy/index",
+    "deploy": "npx deploy",
   }
 }
-
 ```
 ### 第二步
-
 在你项目根目录添加 `deploy.config.js` 文件内容如下:
 ```js
 
@@ -61,6 +54,8 @@ module.exports = Object.freeze({
 
 然后执行：
 ```bash
+npx deploy
+# 或者
 npm run deploy
 ```
 就可以部署了！
