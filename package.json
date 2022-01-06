@@ -4,7 +4,10 @@
   "description": "swd-deploy 一个简单方便的前端自动部署工具，可通过使用 npm 将包安装到你的项目中。",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node "
+  },
+  "bin": {
+    "deploy": "./index.js"
   },
   "keywords": [
     "deploy",
@@ -16,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "chalk": "^4.0.0",
+    "commander": "^7.2.0",
     "compressing": "^1.5.1",
     "inquirer": "^7.1.0",
     "node-ssh": "^10.0.2",

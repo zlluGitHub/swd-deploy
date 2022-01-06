@@ -1,0 +1,32 @@
+{
+    "model": "java",
+    "development": {
+        "sshIp": "",
+        "sshUserName": "",
+        "password": "",
+         
+        "readyTimeout": 60000,
+        "wwwPath": "",
+        "loadingStyle": "arrow4",
+        "distFolder": "dist",
+        "buildShell": "mvn clean package",
+        "git": {
+            "url": "",
+            "branch": ""
+        },
+        "build": {
+            "path": "/",
+            "run": "mvn clean package"
+        },
+        "start": {
+            "path": "/target",
+            "run": "nohup java -jar xxx",
+            "stop": "nohup java -jar xxx"
+        },
+        "webhook": {
+            "open":true,
+            "key": ""
+        }
+    },
+    "production": {}
+}
