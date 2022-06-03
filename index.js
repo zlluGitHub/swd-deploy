@@ -50,7 +50,7 @@ const buildDist = async () => {
 
 //压缩代码
 const zipDist = async () => {
-  defaultLog('项目正在压缩：')
+  defaultLog('项目正在压缩')
   try {
     await zipFile.zip.compressDir(distDir, distZipPath)
     successLog('压缩成功!')
@@ -63,7 +63,7 @@ const zipDist = async () => {
 
 //连接服务器
 const connectSSH = async () => {
-  const loading = ora(defaultLog('正在连接服务器：')).start()
+  const loading = ora(defaultLog('正在连接服务器')).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   //privateKey 秘钥登录(推荐) 方式一
   //password  密码登录 方式二
@@ -143,7 +143,7 @@ const uploadZipBySSH = async () => {
   await connectSSH()
   //线上目标文件清空
   await clearOldFile()
-  const loading = ora(defaultLog(`正在上传 ${config.distFolder}.zip 文件：`)).start()
+  const loading = ora(defaultLog(`正在上传 ${config.distFolder}.zip 文件`)).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   try {
     await SSH.putFiles([{
@@ -210,7 +210,7 @@ let choices = [];
 
 for (const key in CONFIG) {
   choices.push({
-    name: CONFIG[key].title || `发布到 ${CONFIG[key].sshUserName} 服务器环境`,
+    name: CONFIG[key].title || `发布到 ${CONFIG[key].sshIp} 服务器环境`,
     value: key
   })
 };
