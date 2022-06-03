@@ -38,7 +38,7 @@ const buildDist = async () => {
   const loading = ora(defaultLog('项目开始打包')).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   shell.cd(path.resolve(__dirname, pathHierarchy))
-  const res = await shell.exec(config.SHELL || 'npm run build') //执行shell 打包命令
+  const res = await shell.exec(config.buildShell || 'npm run build') //执行shell 打包命令
   loading.stop()
   if (res.code === 0) {
     successLog('项目打包成功!')
@@ -50,7 +50,7 @@ const buildDist = async () => {
 
 //压缩代码
 const zipDist = async () => {
-  defaultLog('项目开始压缩')
+  defaultLog('项目正在压缩：')
   try {
     await zipFile.zip.compressDir(distDir, distZipPath)
     successLog('压缩成功!')
@@ -63,7 +63,7 @@ const zipDist = async () => {
 
 //连接服务器
 const connectSSH = async () => {
-  const loading = ora(defaultLog('正在连接服务器')).start()
+  const loading = ora(defaultLog('正在连接服务器：')).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   //privateKey 秘钥登录(推荐) 方式一
   //password  密码登录 方式二
@@ -79,7 +79,7 @@ const connectSSH = async () => {
   }
   try {
     await SSH.connect(opt)
-    successLog('SSH连接成功!')
+    successLog('服务器连接成功!')
   } catch (error) {
     errorLog(error)
     errorLog('SSH连接失败! (可能原因: 1:密码不对, 2:privateKey 本机私钥地址不对, 3:服务器未配置本机公钥')
@@ -143,7 +143,7 @@ const uploadZipBySSH = async () => {
   await connectSSH()
   //线上目标文件清空
   await clearOldFile()
-  const loading = ora(defaultLog(`准备上传 ${config.distFolder}.zip 文件`)).start()
+  const loading = ora(defaultLog(`正在上传 ${config.distFolder}.zip 文件：`)).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   try {
     await SSH.putFiles([{
@@ -181,7 +181,7 @@ const runUploadTask = async () => {
   await zipDist()
   //连接服务器上传文件
   await uploadZipBySSH()
-  successLog('大吉大利, 部署成功!')
+  successLog('大吉大利, 部署成功！ヾ(@^▽^@)ノ')
   process.exit()
 }
 
@@ -205,24 +205,44 @@ const checkConfig = (conf) => {
   })
 }
 
+
+let choices = [];
+
+for (const key in CONFIG) {
+  choices.push({
+    name: CONFIG[key].title || `发布到 ${CONFIG[key].sshUserName} 服务器环境`,
+    value: key
+  })
+};
+
+if (choices.length === 0) {
+  choices = [{
+    name: '测试环境',
+    value: 'development'
+  }, {
+    name: '正式环境',
+    value: 'production'
+  }]
+}
+
 // 执行交互后 启动发布程序
 inquirer
   .prompt([{
     type: 'list',
     message: '请选择发布环境',
     name: 'env',
-    choices: [{
-      name: '测试环境',
-      value: 'development'
-    }, {
-      name: '正式环境',
-      value: 'production'
-    }]
+    choices
   }])
   .then(answers => {
     config = CONFIG[answers.env];
-    config.distFolder = config.distFolder ? config.distFolder : config.distFolder.replace("/", "");
+    // config.distFolder = config.distFolder || config.distFolder.replace("/", "");
     //文件夹目录
+
+    if (!config.distFolder) {
+      errorLog('本地打包目录不得为空!')
+      process.exit() //退出流程
+    };
+
     distDir = path.resolve(__dirname, `${pathHierarchy + config.distFolder}`) //待打包
     distZipPath = path.resolve(__dirname, `${pathHierarchy + config.distFolder}.zip`) //打包后地址(dist.zip是文件名,不需要更改, 主要在config中配置 PATH 即可)
     checkConfig(config) // 检查

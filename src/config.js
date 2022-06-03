@@ -7,13 +7,14 @@
 
 module.exports = Object.freeze({
   development: {//测试
+    title: "", //提示标题
     sshIp: '', // ssh地址 服务器地址
     sshUserName: '', // ssh 用户名
     //登录方式 (二选一, 不用的方式注释掉)
     // privateKey: 'C:/Users/Administrator/.ssh/id_rsa', //方式一 使用秘钥登录服务器
     password: '',  //方式二 用密码连接服务器
     wwwPath: '', // 需要上传的服务器目录地址 如 /usr/local/nginx/html/prodName
-    distFolder: '', // 打包后的文件夹 默认 /dist
+    distFolder: '', // 需要打包的文件夹 默认 /dist
     loadingStyle: 'arrow4',
     buildShell: 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
     readyTimeout: 60000 // 超时时间
