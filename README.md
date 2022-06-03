@@ -20,11 +20,12 @@ npm i swd-deploy --save
 }
 ```
 ### 第二步
-在你项目根目录添加 `deploy.config.js` 文件内容如下:
+在你项目根目录添加 `deploy.config.js` 文件默认内容如下（可以配置很多...）:
 ```js
 
 module.exports = Object.freeze({
   development: {//测试
+    title: "", //提示标题
     sshIp: 'xx.xxx.xx.xx', // ssh地址 服务器地址
     sshUserName: 'xxxxx', // ssh 用户名
     //登录方式 (二选一, 不用的方式注释掉)
@@ -37,6 +38,7 @@ module.exports = Object.freeze({
     readyTimeout: 5000 // 超时时间
   },
   production: {//正式
+    title: "", //提示标题
     sshIp: 'xx.xxx.xx.xx',
     sshUserName: 'xxxxx',
     password: 'xxxxxx',
@@ -45,6 +47,7 @@ module.exports = Object.freeze({
     buildShell: 'npm run build',
     readyTimeout: 5000 
   }
+  ...
 })
 ```
 **用秘钥登录服务器(推荐)**
