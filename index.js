@@ -72,6 +72,7 @@ const connectSSH = async () => {
   const opt = {
     host: config.sshIp,
     username: config.sshUserName,
+    port: config.port || 22,
     [type]: data
   }
   if (config.readyTimeout) {

@@ -1,6 +1,6 @@
 {
   "name": "swd-deploy",
-  "version": "2.0.2",
+  "version": "2.0.4",
   "description": "swd-deploy 一个简单方便的前端自动部署工具，可通过使用 npm 将包安装到你的项目中。",
   "main": "index.js",
   "scripts": {

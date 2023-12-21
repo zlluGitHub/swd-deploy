@@ -27,6 +27,7 @@ module.exports = Object.freeze({
   development: {//测试
     title: "", //提示标题
     sshIp: 'xx.xxx.xx.xx', // ssh地址 服务器地址
+    sshPort: "", // ssh端口 默认：22
     sshUserName: 'xxxxx', // ssh 用户名
     //登录方式 (二选一, 不用的方式注释掉)
     // privateKey: 'C:/Users/Administrator/.ssh/id_rsa', //方式一 使用秘钥登录服务器
@@ -40,6 +41,7 @@ module.exports = Object.freeze({
   production: {//正式
     title: "", //提示标题
     sshIp: 'xx.xxx.xx.xx',
+    sshPort: "", // ssh端口 默认：22
     sshUserName: 'xxxxx',
     password: 'xxxxxx',
     wwwPath: '',
