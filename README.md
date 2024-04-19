@@ -19,10 +19,22 @@ npm i swd-deploy --save
   }
 }
 ```
+- 说明：
+  - 如果你使用 `npm` 安装 `swd-deploy` 包，则需要使用 `npm deploy` 命令来执行部署操作。
+  - 如果你使用 `yarn` 安装 `swd-deploy` 包，则需要使用 `yarn deploy` 命令来执行部署操作。
+  - 如果你使用 `pnpm` 安装 `swd-deploy` 包，则需要使用 `pnpm deploy` 命令来执行部署操作。
+  - 如果你使用 `cnpm` 安装 `swd-deploy` 包，则需要使用 `cnpm deploy` 命令来执行部署操作。
+
+另外，还支持通过命令参数进行自动部署，例如：
+```bash
+npx deploy --key=production
+```
+其中 `production` 为 `deploy.config.js` 配置文件中的 `key` 值。
+
+
 ### 第二步
 在你项目根目录添加 `deploy.config.js` 文件默认内容如下（可以配置很多...）:
 ```js
-
 module.exports = Object.freeze({
   development: {//测试
     title: "", //提示标题
@@ -48,10 +60,15 @@ module.exports = Object.freeze({
     loadingStyle: 'arrow4',
     buildShell: 'npm run build',
     readyTimeout: 5000 
+  },
+  xxx: {
+    ...
   }
   ...
 })
 ```
+其中 `development`,`development`，`xxx` 均为 `key` 变量，可自行修改。
+
 **用秘钥登录服务器(推荐)**
 * 把本机 公钥` .ssh` 目录下` id_rsa.pub` 放服务器 `authorized_keys` 文件里, 多个电脑公钥换行分开
 * `private` 本机私钥文件地址(需要在服务器用户目录 一般是` ~/.ssh/authorized_keys` 配置公钥 并该文件权限为 `600`, (.ssh文件夹一般默认隐藏)
@@ -65,6 +82,7 @@ npm run deploy
 ```
 就可以部署了！
 ## 示例
+![在这里插入图片描述](./20240419191642.png)
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210301090757518.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzU4MTQxMQ==,size_16,color_FFFFFF,t_70)
 - GitHub 地址：[https://github.com/zlluGitHub/swd-deploy](https://github.com/zlluGitHub/swd-deploy)
 - Gitee 地址：[https://gitee.com/zlluGitHub/swd-deploy](https://gitee.com/zlluGitHub/swd-deploy)
