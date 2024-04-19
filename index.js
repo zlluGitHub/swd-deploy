@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
-const pathHierarchy = '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
+const pathHierarchy = './'// '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
 const errorLog = log => console.log(chalk.red(`✘ ${log}`))
 // const warningLog = log => console.log(chalk.yellow(`◎ ${log}`))
 const successLog = log => console.log(chalk.green(`✔ ${log}`))
-
+const fs = require('fs')
 const chalk = require('chalk') //命令行颜色
 const ora = require('ora') // 加载流程动画
 const spinner_style = require('./src/spinner_style') //加载动画样式
 const shell = require('shelljs') // 执行shell命令
 const Client = require('ssh2-sftp-client') // ssh连接服务器
 const inquirer = require('inquirer') //命令行交互
-const zipFile = require('compressing') // 压缩zip
+// const zipFile = require('compressing') // 压缩zip
 // const fs = require('fs') // nodejs内置文件模块
 const path = require('path') // nodejs内置路径模块
 const SSH = new Client()
@@ -29,8 +29,22 @@ console.log(chalk.green(`☺ 欢迎使用自动部署工具！`))
 
 let config = {} // 用于保存 inquirer 命令行交互后选择正式|测试版的配置
 
-//文件夹目录
-let distDir = "", distZipPath = "";
+
+/**
+ * 获取命令行参数并返回对象
+ * @returns {Object} 参数对象
+ */
+const getOption = () => {
+  const arr = process.argv.slice(2); // 获取命令行参数数组
+  const r = arr.reduce((pre, item) => { // 使用reduce方法对参数数组进行处理
+    if (item.indexOf("=") !== -1) { // 判断参数是否有等号
+      return [...pre, item.split("=")]; // 将带有等号的参数进行分割并添加到结果数组中
+    }
+    return pre; // 否则返回原结果数组
+  }, []);
+  const params = Object.fromEntries(r); // 将结果数组转化为参数对象
+  return params; // 返回参数对象
+}
 
 
 //项目打包代码 npm run build 
@@ -48,18 +62,6 @@ const buildDist = async () => {
   }
 }
 
-//压缩代码
-const zipDist = async () => {
-  defaultLog('项目正在压缩')
-  try {
-    await zipFile.zip.compressDir(distDir, distZipPath)
-    successLog('压缩成功!')
-  } catch (error) {
-    errorLog(error)
-    errorLog('压缩失败, 退出程序!')
-    process.exit() //退出流程
-  }
-}
 
 //连接服务器
 const connectSSH = async () => {
@@ -98,32 +100,60 @@ const connectSSH = async () => {
   loading.stop()
 }
 
+
+const formatNodePath = (filePath) => {
+  // 返回格式化后的路径
+  return filePath.replace(/\\/g, '/')
+}
+
+const uploadFile = async (localPath, remotePath) => {
+  const loading = ora(defaultLog(`正在上传 ${localPath} 文件`)).start()
+  // loading.spinner = spinner_style['dots']
+  await SSH.fastPut(localPath, remotePath, {
+    // step: (totalTransferred, chunk, total) => {
+    //   // this.laterSize = totalTransferred + this.uploadSize
+    // }
+  })
+  loading.stop()
+  successLog(`文件 ${localPath} 上传成功!`)
+}
+
+const uploadDirectory = async (localDir, remoteDir) => {
+
+  const files = fs.readdirSync(localDir)
+
+  for (let i = 0; i < files.length; i++) {
+    const fileName = files[i]
+
+    const localFilePath = formatNodePath(path.join(localDir, fileName))
+    const remoteFilePath = formatNodePath(path.join(remoteDir, fileName))
+
+    const stats = fs.statSync(localFilePath)
+    if (stats.isFile()) {
+      await uploadFile(localFilePath, remoteFilePath)
+    } else if (stats.isDirectory()) {
+      // console.log(localFilePath,'==> dir');
+      await SSH.mkdir(remoteFilePath, true)
+      await uploadDirectory(localFilePath, remoteFilePath)
+    }
+  }
+}
+
 //传送zip文件到服务器
 const uploadZipBySSH = async () => {
   //连接ssh
   await connectSSH()
-  //线上目标文件清空
-  // await clearOldFile()
-  const loading = ora(defaultLog(`正在上传 ${config.distFolder} 文件夹`)).start()
-  loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
+
   try {
 
-    await SSH.uploadDir(config.distFolder, config.wwwPath)
-
-    successLog(`文件夹 ${config.distFolder} 上传成功!`)
-
-    // await SSH.fastPut(distZipPath, config.wwwPath + `/${config.distFolder}.zip`).then(() => {
-    //   successLog(`${config.distFolder}.zip 上传成功!`)
-    // })
-
-    // loading.text = '正在解压文件...'
-    // await SSH.exec(`unzip ./${config.distFolder}.zip`) //解压
-    // await SSH.exec(`rm -rf ${config.wwwPath}/${config.distFolder}.zip`) //解压完删除线上压缩包
-    // //将目标目录的dist里面文件移出到目标文件  
-    // //举个例子 假如我们部署在 /test/html 这个目录下 只有一个网站, 那么上传解压后的文件在 /test/html/dist 里
-    // //需要将 dist 目录下的文件 移出到 /test/html   多网站情况, 如 /test/html/h5  或者 /test/html/admin 都和上面同样道理
-    // await SSH.exec(`mv -f ${config.wwwPath}/${config.distFolder}/*  ${config.wwwPath}`)
-    // await SSH.exec(`rm -rf ${config.wwwPath}/${config.distFolder}`) //移出后删除 dist 文件夹
+    const stats = fs.statSync(config.distFolder)
+    if (stats.isFile()) {
+      await uploadFile(config.distFolder, config.wwwPath)
+    } else if (stats.isDirectory()) {
+      await SSH.mkdir(config.wwwPath, true)
+      await uploadDirectory(config.distFolder, config.wwwPath)
+      successLog(`文件夹 ${config.distFolder} 中的所有文件已上传成功!`)
+    }
 
     SSH.end(); //断开连接
   } catch (error) {
@@ -131,9 +161,8 @@ const uploadZipBySSH = async () => {
     errorLog('上传失败!')
     process.exit() //退出流程
   }
-  loading.stop()
+  // loading.stop()
 }
-
 
 //------------发布程序---------------
 const runUploadTask = async () => {
@@ -141,9 +170,7 @@ const runUploadTask = async () => {
   if (config.buildShell) {
     await buildDist()
   }
-  //压缩
-  await zipDist()
-  //连接服务器上传文件
+
   await uploadZipBySSH()
   successLog('大吉大利, 部署成功！ヾ(@^▽^@)ノ')
   process.exit()
@@ -189,26 +216,38 @@ if (choices.length === 0) {
   }]
 }
 
-// 执行交互后 启动发布程序
-inquirer
-  .prompt([{
-    type: 'list',
-    message: '请选择发布环境',
-    name: 'env',
-    choices
-  }])
-  .then(answers => {
-    config = CONFIG[answers.env];
-    // config.distFolder = config.distFolder || config.distFolder.replace("/", "");
-    //文件夹目录
+const initAnswers = (key) => {
+  config = CONFIG[key];
+  // config.distFolder = config.distFolder || config.distFolder.replace("/", "");
+  //文件夹目录
+  // console.log(answers.env);
 
-    if (!config.distFolder) {
-      errorLog('本地打包目录不得为空!')
-      process.exit() //退出流程
-    };
+  if (!config.distFolder) {
+    errorLog('本地打包目录不得为空!')
+    process.exit() //退出流程
+  };
 
-    distDir = path.resolve(__dirname, `${pathHierarchy + config.distFolder}`) //待打包
-    distZipPath = path.resolve(__dirname, `${pathHierarchy + config.distFolder}.zip`) //打包后地址(dist.zip是文件名,不需要更改, 主要在config中配置 PATH 即可)
-    checkConfig(config) // 检查
-    runUploadTask() // 发布
-  })
+  distDir = path.resolve(__dirname, `${pathHierarchy + config.distFolder}`) //待打包
+  distZipPath = path.resolve(__dirname, `${pathHierarchy + config.distFolder}.zip`) //打包后地址(dist.zip是文件名,不需要更改, 主要在config中配置 PATH 即可)
+  checkConfig(config) // 检查
+  runUploadTask() // 发布
+}
+
+const params = getOption()
+
+if (params['--key']) {
+  initAnswers(params['--key'])
+} else {
+  // 执行交互后 启动发布程序
+  inquirer
+    .prompt([{
+      type: 'list',
+      message: '请选择发布环境',
+      name: 'env',
+      choices
+    }])
+    .then(answers => {
+      initAnswers(answers.env)
+    })
+}
+
