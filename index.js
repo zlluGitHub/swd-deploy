@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 
-const pathHierarchy = '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
-//logs
-const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
-const errorLog = log => console.log(chalk.red(`✘ ${log}`))
-// const warningLog = log => console.log(chalk.yellow(`◎ ${log}`))
-const successLog = log => console.log(chalk.green(`✔ ${log}`))
-const fs = require('fs')
 const chalk = require('chalk') //命令行颜色
+const fs = require('fs')
+const CliProgress = require('cli-progress');
 const ora = require('ora') // 加载流程动画
 const spinner_style = require('./src/spinner_style') //加载动画样式
 const shell = require('shelljs') // 执行shell命令
@@ -16,6 +11,15 @@ const inquirer = require('inquirer') //命令行交互
 // const zipFile = require('compressing') // 压缩zip
 // const fs = require('fs') // nodejs内置文件模块
 const path = require('path') // nodejs内置路径模块
+const colors = require('ansi-colors');
+
+const pathHierarchy = './'// '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
+//logs
+const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
+const errorLog = log => console.log(chalk.red(`✘ ${log}`))
+// const warningLog = log => console.log(chalk.yellow(`◎ ${log}`))
+const successLog = log => console.log(chalk.green(`✔ ${log}`))
+
 const SSH = new Client()
 let CONFIG = {};
 try {
@@ -106,15 +110,64 @@ const formatNodePath = (filePath) => {
   return filePath.replace(/\\/g, '/')
 }
 
-const uploadFile = async (localPath, remotePath) => {
-  const loading = ora(defaultLog(`正在上传 ${localPath} 文件`)).start()
+const formatBytes = (bytes, decimals = 2) => {
+  if (bytes === 0) return '0 B'; //Bytes
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + '' + sizes[i];
+}
+
+const uploadFile = async (localPath, remotePath, stats) => {
+
+  defaultLog(`正在上传 ${localPath} 文件`)
+
+  const b1 = new CliProgress.Bar({
+    format: '上传进度：[' + colors.cyan('{bar}') + '] {percentage}%  {speed}',
+    // barCompleteChar: '\u2588',
+    // barIncompleteChar: '\u2591',
+    barCompleteChar: '#',
+    barIncompleteChar: '-',
+    hideCursor: true
+  });
+
+  let totalTransferredW = 0;
+  let totalW = 0;
+
+  b1.start(100, 0, {
+    speed: "N/A"
+  });
+
+  const startTime = new Date().getTime();
+  const timer = setInterval(() => {
+    b1.update(((totalTransferredW / totalW) * 100).toFixed(2), {
+      speed: formatBytes(totalTransferredW / totalW) + '/s'
+    });
+  }, 1000)
+
+
+  // const loading = ora(defaultLog(`正在上传 ${localPath} 文件`)).start()
   // loading.spinner = spinner_style['dots']
   await SSH.fastPut(localPath, remotePath, {
-    // step: (totalTransferred, chunk, total) => {
-    //   // this.laterSize = totalTransferred + this.uploadSize
-    // }
+    step: (totalTransferred, chunk, total) => {
+      // sahngi.text = `${chalk.green('上传进度: ')}${chalk.blue(`${totalTransferred} / ${total}`)}`
+      // this.laterSize = totalTransferred + this.uploadSize
+      totalTransferredW = totalTransferred;
+      totalW = total;
+    }
   })
-  loading.stop()
+
+  const endTime = new Date().getTime();
+
+  const time = (endTime - startTime) / 1000;
+  b1.update(100, {
+    speed: formatBytes(totalW / time) + '/s'
+  });
+  clearInterval(timer)
+
+  b1.stop();
+  // loading.stop()
   successLog(`文件 ${localPath} 上传成功!`)
 }
 
@@ -130,11 +183,11 @@ const uploadDirectory = async (localDir, remoteDir) => {
 
     const stats = fs.statSync(localFilePath)
     if (stats.isFile()) {
-      await uploadFile(localFilePath, remoteFilePath)
+      await uploadFile(localFilePath, remoteFilePath, stats)
     } else if (stats.isDirectory()) {
       // console.log(localFilePath,'==> dir');
       await SSH.mkdir(remoteFilePath, true)
-      await uploadDirectory(localFilePath, remoteFilePath)
+      await uploadDirectory(localFilePath, remoteFilePath, stats)
     }
   }
 }
