@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const pathHierarchy = './'// '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
+const pathHierarchy = '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
 const errorLog = log => console.log(chalk.red(`✘ ${log}`))
