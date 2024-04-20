@@ -93,9 +93,9 @@ const connectSSH = async () => {
     [type]: data,
     tryKeyboard: true,
   }
-  if (config.readyTimeout) {
-    opt.readyTimeout = config.readyTimeout
-  }
+  // if (config.readyTimeout) {
+  opt.readyTimeout = params['--readyTimeout'] || config.readyTimeout || 60000
+  // }
 
   try {
     await SSH.connect(opt)

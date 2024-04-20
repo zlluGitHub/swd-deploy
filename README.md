@@ -50,18 +50,21 @@ npx deploy --key=production
 ```js
 module.exports = Object.freeze({
   development: {//测试
-    title: "", //提示标题
-    sshIp: 'xx.xxx.xx.xx', // ssh地址 服务器地址
-    sshPort: "", // ssh端口 默认：22
-    sshUserName: 'xxxxx', // ssh 用户名
-    //登录方式 (二选一, 不用的方式注释掉)
-    // privateKey: 'C:/Users/Administrator/.ssh/id_rsa', //方式一 使用秘钥登录服务器
-    password: 'xxxxxx',  //方式二 用密码连接服务器
-    wwwPath: '', // 需要上传的服务器目录地址 如 /usr/local/nginx/html/prodName
-    distFolder: 'dist', // 打包后的文件夹 默认 /dist
+    title: "开发环境", //提示标题
+    // x[已废弃] sshIp: '10.0.85.100', 
+    host: '127.0.0.1',// 新增字段与 sshIp 一致
+    port: 22,
+     // x[已废弃] sshUserName: 'root',
+    username: 'root',
+    password: '',
+    wwwPath: '',
+    // x[已废弃] distFolder: 'src', // 打包后的文件夹 默认 /dist
+    localPath: '', // 新增字段与distFolder一致 默认 /dist
+    configPath: '', // deploy.config.js文件路径 默认项目根目录(./)
     loadingStyle: 'arrow4', // 打包后的文件夹 默认 /dist
-    buildShell: 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
-    readyTimeout: 5000 // 超时时间
+    // x[已废弃] buildShell: '',// 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
+    build: '',// 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
+    readyTimeout: 60000 // 超时时间
   },
   production: {//正式
     title: "", //提示标题
