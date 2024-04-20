@@ -13,7 +13,6 @@ const inquirer = require('inquirer') //命令行交互
 const path = require('path') // nodejs内置路径模块
 const colors = require('ansi-colors');
 
-const pathHierarchy = './'// '../../'     //脚本到项目的层级  项目/node_modules/deploy-node/index.js
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
 const errorLog = log => console.log(chalk.red(`✘ ${log}`))
@@ -21,23 +20,12 @@ const errorLog = log => console.log(chalk.red(`✘ ${log}`))
 const successLog = log => console.log(chalk.green(`✔ ${log}`))
 
 const SSH = new Client()
-let CONFIG = {};
-try {
-  CONFIG = require(`${pathHierarchy}deploy.config.js`) // 项目配置
-} catch (error) {
-  errorLog('请在项目根目录添加 deploy.config.js 配置文件, 参考说明文档中的配置')
-  process.exit() //退出流程
-}
+
 
 console.log(chalk.green(`☺ 欢迎使用自动部署工具！`))
 
 let config = {} // 用于保存 inquirer 命令行交互后选择正式|测试版的配置
 
-
-/**
- * 获取命令行参数并返回对象
- * @returns {Object} 参数对象
- */
 const getOption = () => {
   const arr = process.argv.slice(2); // 获取命令行参数数组
   const r = arr.reduce((pre, item) => { // 使用reduce方法对参数数组进行处理
@@ -46,23 +34,46 @@ const getOption = () => {
     }
     return pre; // 否则返回原结果数组
   }, []);
+  if (r.length == 0) {
+    return false
+  }
   const params = Object.fromEntries(r); // 将结果数组转化为参数对象
   return params; // 返回参数对象
 }
 
+let params = getOption()
+
+const pathHierarchy = params['--config'] || '../../' // './'      //脚本到项目的层级  项目/node_modules/deploy-node/index.js
+
+let CONFIG = {};
+let isExitConfigFile = true;
+try {
+  CONFIG = require(path.resolve(__dirname, `${pathHierarchy}deploy.config.js`)) // 项目配置
+} catch (error) {
+  if (params['--host'] && params['--password'] && params['--wwwPath'] && params['--localPath']) {
+    // 命令行参数优先级最高
+    isExitConfigFile = false
+  } else {
+    errorLog('请在项目根目录添加 deploy.config.js 配置文件。')
+    console.log(colors.cyan('参考说明文档中的配置：https://github.com/zlluGitHub/swd-deploy'));
+    process.exit() //退出流程
+  }
+}
 
 //项目打包代码 npm run build 
 const buildDist = async () => {
   const loading = ora(defaultLog('开始打包项目')).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   shell.cd(path.resolve(__dirname, pathHierarchy))
-  const res = await shell.exec(config.buildShell || 'npm run build') //执行shell 打包命令
+  const res = await shell.exec(params['--build'] || config.build || config.buildShell || 'npm run build') //执行shell 打包命令
   loading.stop()
   if (res.code === 0) {
     successLog('项目打包成功!')
+    return true
   } else {
     errorLog('项目打包失败, 请重试!')
     process.exit() //退出流程
+    return false
   }
 }
 
@@ -73,12 +84,12 @@ const connectSSH = async () => {
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
   //privateKey 秘钥登录(推荐) 方式一
   //password  密码登录 方式二
-  const type = config.password ? 'password' : 'privateKey'
-  const data = config.password || config.privateKey
+  const type = (params['--password'] || config.password) ? 'password' : 'privateKey'
+  const data = (params['--password'] || config.password) || config.privateKey
   const opt = {
-    host: config.sshIp,
-    username: config.sshUserName,
-    port: config.port || 22,
+    host: params['--host'] || config.sshIp || config.host,
+    username: params['--username'] || config.username || config.sshUserName || 'root',
+    port: params['--port'] || config.port || 22,
     [type]: data,
     tryKeyboard: true,
   }
@@ -87,17 +98,10 @@ const connectSSH = async () => {
   }
 
   try {
-    // await SSH.connect(opt)
-    await SSH.connect({
-      // host: '127.0.0.1',
-      // port: '8080',
-      // username: 'username',
-      // password: '******'
-      ...opt
-    })
+    await SSH.connect(opt)
     successLog('服务器连接成功!')
   } catch (error) {
-    errorLog('SSH连接失败! (可能原因: 1:密码不对, 2:privateKey 本机私钥地址不对, 3:服务器未配置本机公钥')
+    errorLog('SSH连接失败! (可能原因: 1:密码不对, 2:privateKey 本机私钥地址不对, 3:服务器未配置本机公钥, 4:服务器未安装 SSH 服务或端口), 5:使用命令参数时, 请检查是否配置了 --key 参数')
     process.exit() //退出流程
   }
 
@@ -132,8 +136,9 @@ const uploadFile = async (localPath, remotePath, stats) => {
     hideCursor: true
   });
 
-  let totalTransferredW = 0;
-  let totalW = 0;
+  let totalTransferredW1 = 0;
+  let totalTransferredW2 = 0;
+  let totalW = 1;
 
   b1.start(100, 0, {
     speed: "N/A"
@@ -141,19 +146,15 @@ const uploadFile = async (localPath, remotePath, stats) => {
 
   const startTime = new Date().getTime();
   const timer = setInterval(() => {
-    b1.update(((totalTransferredW / totalW) * 100).toFixed(2), {
-      speed: formatBytes(totalTransferredW / totalW) + '/s'
+    b1.update((((totalTransferredW1 / totalW) * 100).toFixed(2)) * 1, {
+      speed: formatBytes(totalTransferredW1 - totalTransferredW2) + '/s'
     });
+    totalTransferredW2 = totalTransferredW1;
   }, 1000)
-
-
-  // const loading = ora(defaultLog(`正在上传 ${localPath} 文件`)).start()
-  // loading.spinner = spinner_style['dots']
+  // console.log(localPath);
   await SSH.fastPut(localPath, remotePath, {
     step: (totalTransferred, chunk, total) => {
-      // sahngi.text = `${chalk.green('上传进度: ')}${chalk.blue(`${totalTransferred} / ${total}`)}`
-      // this.laterSize = totalTransferred + this.uploadSize
-      totalTransferredW = totalTransferred;
+      totalTransferredW1 = totalTransferred;
       totalW = total;
     }
   })
@@ -192,36 +193,69 @@ const uploadDirectory = async (localDir, remoteDir) => {
   }
 }
 
+
+const fuh = [',', '、', ';', '；']
+
+const splitPath = (str) => {
+  const fgf = fuh.find(item => str.indexOf(item) > -1)
+  return str.split(fgf)
+}
+
 //传送zip文件到服务器
 const uploadZipBySSH = async () => {
   //连接ssh
   await connectSSH()
 
+
   try {
 
-    const stats = fs.statSync(config.distFolder)
-    if (stats.isFile()) {
-      await uploadFile(config.distFolder, config.wwwPath)
-    } else if (stats.isDirectory()) {
-      await SSH.mkdir(config.wwwPath, true)
-      await uploadDirectory(config.distFolder, config.wwwPath)
-      successLog(`文件夹 ${config.distFolder} 中的所有文件已上传成功!`)
+    let pathArr = []
+    if (params['--localPath']) {
+      pathArr = splitPath(params['--localPath'])
+    } else {
+      const localPaths = config.distFolder || config.localPath || false
+
+      if (!localPaths) throw new Error();
+
+      if (typeof localPaths == 'object') {
+        pathArr = localPaths
+      } else {
+        pathArr = splitPath(localPaths)
+      }
     }
 
-    SSH.end(); //断开连接
+    for (let i = 0; i < pathArr.length; i++) {
+      const localPath = path.resolve(__dirname, pathArr[i])
+      const stats = fs.statSync(localPath)
+      let wwwPath = params['--wwwPath'] || config.wwwPath
+      if (stats.isFile()) {
+        if (wwwPath.indexOf('.' == -1)) {
+          wwwPath = wwwPath + '/' + path.basename(localPath)
+        }
+        await uploadFile(localPath, wwwPath)
+      } else if (stats.isDirectory()) {
+        await SSH.mkdir(wwwPath, true)
+        await uploadDirectory(localPath, wwwPath)
+        successLog(`文件夹 ${localPath} 中的所有文件已上传成功!`)
+      }
+    }
+
+
   } catch (error) {
     errorLog(error)
-    errorLog('上传失败!')
+    errorLog('上传失败，请检查文件或文件夹路径是否正确!')
     process.exit() //退出流程
   }
+  SSH.end(); //断开连接
   // loading.stop()
 }
 
 //------------发布程序---------------
 const runUploadTask = async () => {
   //打包
-  if (config.buildShell) {
+  if (params['--build'] || config.build || config.buildShell) {
     await buildDist()
+    // if (!res) return
   }
 
   await uploadZipBySSH()
@@ -234,27 +268,27 @@ const runUploadTask = async () => {
  * 
  * @param {Object} conf 配置对象
  */
-const checkConfig = (conf) => {
-  const checkArr = Object.entries(conf)
-  checkArr.map(it => {
-    const key = it[0]
-    if (conf[key] === '/') { //上传zip前会清空目标目录内所有文件
-      errorLog('buildShell 不能是服务器根目录!')
-      process.exit() //退出流程
-    }
-    if (!conf[key]) {
-      errorLog(`配置项 ${key} 不能为空`)
-      process.exit() //退出流程
-    }
-  })
-}
-
+// const checkConfig = (conf) => {
+//   const checkArr = Object.entries(conf)
+//   checkArr.map(it => {
+//     const key = it[0]
+//     if (conf[key] === '/') { //上传zip前会清空目标目录内所有文件
+//       errorLog('buildShell 不能是服务器根目录!')
+//       process.exit() //退出流程
+//     }
+//     if (!conf[key]) {
+//       errorLog(`配置项 ${key} 不能为空`)
+//       process.exit() //退出流程
+//     }
+//   })
+// }
+// console.log(params);
 
 let choices = [];
 
 for (const key in CONFIG) {
   choices.push({
-    name: CONFIG[key].title || `发布到 ${CONFIG[key].sshIp} 服务器环境`,
+    name: CONFIG[key].title || `发布到 ${params['--host'] || config.sshIp || config.host} 服务器环境`,
     value: key
   })
 };
@@ -269,29 +303,58 @@ if (choices.length === 0) {
   }]
 }
 
-const initAnswers = (key) => {
-  config = CONFIG[key];
+
+const initAnswers = async (key) => {
+
+  config = key ? CONFIG[key] : {};
   // config.distFolder = config.distFolder || config.distFolder.replace("/", "");
   //文件夹目录
   // console.log(answers.env);
-
-  if (!config.distFolder) {
-    errorLog('本地打包目录不得为空!')
+  const localPaths = params['--localPath'] || config.distFolder || config.localPath || false
+  if (!localPaths) {
+    errorLog('请配置本地打包目录，或检查 “deploy.config.js” 文件是否在根目录下!')
     process.exit() //退出流程
+    // return
   };
 
-  distDir = path.resolve(__dirname, `${pathHierarchy + config.distFolder}`) //待打包
-  distZipPath = path.resolve(__dirname, `${pathHierarchy + config.distFolder}.zip`) //打包后地址(dist.zip是文件名,不需要更改, 主要在config中配置 PATH 即可)
-  checkConfig(config) // 检查
-  runUploadTask() // 发布
+  // distDir = path.resolve(__dirname, `${pathHierarchy + config.distFolder}`) //待打包
+  // distZipPath = path.resolve(__dirname, `${pathHierarchy + config.distFolder}.zip`) //打包后地址(dist.zip是文件名,不需要更改, 主要在config中配置 PATH 即可)
+  // checkConfig(config) // 检查
+  await runUploadTask() // 发布
 }
 
-const params = getOption()
+// path.resolve(__dirname, 'D:/zx/zxczx')
+// 获取执行命令的路径
+// const execPath = process.argv[1];
 
-if (params['--key']) {
-  initAnswers(params['--key'])
+// console.log('当前执行命令的路径:', execPath);
+// console.log(path.resolve(__dirname, './'));
+
+// return 
+
+if (params) {
+
+  // if (isExitConfigFile) {
+  //   if (!params['--key']) {
+  //     errorLog('请指定 --key 参数！')
+  //     process.exit() //退出流程 
+  //     // return
+  //   }
+  // }
+  let key = params['--key']
+  if (key && (!CONFIG[key])) {
+    errorLog('请检查 “deploy.config.js” 文件是否配置 --key 参数!')
+    process.exit() //退出流程 
+  }
+
+  initAnswers(key)
 } else {
+  params = {}
   // 执行交互后 启动发布程序
+
+  // for (const key in CONFIG) {
+  //   // const element = CONFIG[key];
+  //    }
   inquirer
     .prompt([{
       type: 'list',
@@ -303,4 +366,5 @@ if (params['--key']) {
       initAnswers(answers.env)
     })
 }
+
 

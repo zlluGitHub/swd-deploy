@@ -1,14 +1,30 @@
 # 前言
 我们在常规的前端项目中，前端项目部署都需要经过本地 build 打包、压缩文件、将压缩包上传至服务器并解压文件等步骤，过程较为繁琐。所以本人编写了一个名为 `swd-deploy` 的 `nodejs` 脚本，可通过使用 `npm` 将包安装到你的项目中使用，用来告别手动上传的过程，配置使用简单，实现前端一键自动化部署。
 
-**注意：**
+::: warning 注意
 前端自动化编译与部署脚本，当前只支持 `window` 上传至 `linux` 服务器以及 `linux` 上传至 `linux` 服务器。
+:::
 
 ## 快速安装
+**1、局部使用**
+
+项目内使用
 ```bash
 npm i swd-deploy --save
 ```
-## 快速使用 
+
+**2、全局使用**
+
+可以用于上传指定文件或文件夹。
+```bash
+npm i swd-deploy -g
+```
+比如上传本地的`index.js`文件和`dir2`文件夹到远程服务器`/home/dir`文件夹下。
+```bash
+deploy --host='127.0.0.1' --port=22 --username=root --password=xxxxxx --localPath=/dir1/index.js,/dir2 --wwwPath=/home/dir
+```
+
+## 项目内使用 
 
 ### 第一步
 在你的项目 `package.json` 文件中的 `scripts` 字段中添加如下内容：
@@ -19,12 +35,9 @@ npm i swd-deploy --save
   }
 }
 ```
-- 说明：
-  - 如果你使用 `npm` 安装 `swd-deploy` 包，则需要使用 `npm deploy` 命令来执行部署操作。
-  - 如果你使用 `yarn` 安装 `swd-deploy` 包，则需要使用 `yarn deploy` 命令来执行部署操作。
-  - 如果你使用 `pnpm` 安装 `swd-deploy` 包，则需要使用 `pnpm deploy` 命令来执行部署操作。
-  - 如果你使用 `cnpm` 安装 `swd-deploy` 包，则需要使用 `cnpm deploy` 命令来执行部署操作。
-
+```bash
+npm run deploy
+```
 另外，还支持通过命令参数进行自动部署，例如：
 ```bash
 npx deploy --key=production
@@ -82,8 +95,8 @@ npm run deploy
 ```
 就可以部署了！
 ## 示例
-![在这里插入图片描述](./20240419191642.png)
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20210301090757518.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzU4MTQxMQ==,size_16,color_FFFFFF,t_70)
+![在这里插入图片描述](http://zhenglinglu.cn/artical/cli_20240419191642.png)
+<!-- ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210301090757518.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzU4MTQxMQ==,size_16,color_FFFFFF,t_70) -->
 - GitHub 地址：[https://github.com/zlluGitHub/swd-deploy](https://github.com/zlluGitHub/swd-deploy)
 - Gitee 地址：[https://gitee.com/zlluGitHub/swd-deploy](https://gitee.com/zlluGitHub/swd-deploy)
 - npm 地址：[https://www.npmjs.com/package/swd-deploy](https://www.npmjs.com/package/swd-deploy)
