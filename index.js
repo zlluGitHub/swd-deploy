@@ -20,8 +20,7 @@ const errorLog = log => console.log(chalk.red(`✘ ${log}`))
 const successLog = log => console.log(chalk.green(`✔ ${log}`))
 
 const SSH = new Client()
-
-
+ 
 console.log(chalk.green(`☺ 欢迎使用自动部署工具！`))
 
 let config = {} // 用于保存 inquirer 命令行交互后选择正式|测试版的配置
@@ -46,16 +45,16 @@ let params = getOption()
 const pathHierarchy = params['--config'] || '../../' // './'      //脚本到项目的层级  项目/node_modules/deploy-node/index.js
 
 let CONFIG = {};
-let isExitConfigFile = true;
+// let isExitConfigFile = true;
 try {
   CONFIG = require(path.resolve(__dirname, `${pathHierarchy}deploy.config.js`)) // 项目配置
 } catch (error) {
   if (params['--host'] && params['--password'] && params['--wwwPath'] && params['--localPath']) {
     // 命令行参数优先级最高
-    isExitConfigFile = false
+    // isExitConfigFile = false
   } else {
     errorLog('请在项目根目录添加 deploy.config.js 配置文件。')
-    console.log(colors.cyan('参考说明文档中的配置：https://github.com/zlluGitHub/swd-deploy'));
+    console.log(colors.grey('参考说明文档中的配置：https://github.com/zlluGitHub/swd-deploy'));
     process.exit() //退出流程
   }
 }
@@ -128,7 +127,7 @@ const uploadFile = async (localPath, remotePath, stats) => {
   defaultLog(`正在上传 ${localPath} 文件`)
 
   const b1 = new CliProgress.Bar({
-    format: '上传进度：[' + colors.cyan('{bar}') + '] {percentage}%  {speed}',
+    format: '上传进度：[' + colors.cyan('{bar}') + '] {percentage}% ' + colors.magenta('{size} ') + colors.green('{speed}'),
     // barCompleteChar: '\u2588',
     // barIncompleteChar: '\u2591',
     barCompleteChar: '#',
@@ -141,13 +140,15 @@ const uploadFile = async (localPath, remotePath, stats) => {
   let totalW = 1;
 
   b1.start(100, 0, {
-    speed: "N/A"
+    speed: "N/A",
+    size: '0KB/0KB'
   });
 
   const startTime = new Date().getTime();
   const timer = setInterval(() => {
     b1.update((((totalTransferredW1 / totalW) * 100).toFixed(2)) * 1, {
-      speed: formatBytes(totalTransferredW1 - totalTransferredW2) + '/s'
+      speed: formatBytes(totalTransferredW1 - totalTransferredW2) + '/s',
+      size: formatBytes(totalTransferredW1) + '/' + formatBytes(totalW)
     });
     totalTransferredW2 = totalTransferredW1;
   }, 1000)
@@ -163,7 +164,8 @@ const uploadFile = async (localPath, remotePath, stats) => {
 
   const time = (endTime - startTime) / 1000;
   b1.update(100, {
-    speed: formatBytes(totalW / time) + '/s'
+    speed: formatBytes(totalW / time) + '/s',
+    size: formatBytes(totalW) + '/' + formatBytes(totalW)
   });
   clearInterval(timer)
 
@@ -225,7 +227,7 @@ const uploadZipBySSH = async () => {
     }
 
     for (let i = 0; i < pathArr.length; i++) {
-      const localPath = path.resolve(__dirname, pathArr[i])
+      const localPath = pathArr[i] //path.resolve(__dirname, pathArr[i])
       const stats = fs.statSync(localPath)
       let wwwPath = params['--wwwPath'] || config.wwwPath
       if (stats.isFile()) {
