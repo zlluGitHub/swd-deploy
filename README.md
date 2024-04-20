@@ -61,6 +61,7 @@ module.exports = Object.freeze({
     // x[已废弃] distFolder: 'src', // 打包后的文件夹 默认 /dist
     localPath: '', // 新增字段与distFolder一致 默认 /dist
     configPath: '', // deploy.config.js文件路径 默认项目根目录(./)
+    ignoreFiles: '', // 忽略文件 多个文件用 , 隔开 例如 .git, .gitignore, .DS_Store
     loadingStyle: 'arrow4', // 打包后的文件夹 默认 /dist
     // x[已废弃] buildShell: '',// 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包
     build: '',// 'npm run build', // 自定义打包命令 若为空则会直接部署，不会打包

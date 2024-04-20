@@ -20,7 +20,7 @@ const errorLog = log => console.log(chalk.red(`✘ ${log}`))
 const successLog = log => console.log(chalk.green(`✔ ${log}`))
 
 const SSH = new Client()
- 
+
 console.log(chalk.green(`☺ 欢迎使用自动部署工具！`))
 
 let config = {} // 用于保存 inquirer 命令行交互后选择正式|测试版的配置
@@ -122,7 +122,27 @@ const formatBytes = (bytes, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + '' + sizes[i];
 }
 
+const getIgnoreFileArr = (localPath) => {
+  let ignoreFileArr = []
+  if (params['--localPath']) {
+    ignoreFileArr = splitPath(params['--ignoreFiles'])
+  } else if (config.ignoreFiles) {
+    if (typeof config.ignoreFiles == 'object') {
+      ignoreFileArr = config.ignoreFiles
+    } else {
+      ignoreFileArr = splitPath(config.ignoreFiles)
+    }
+  }
+  const findItem = ignoreFileArr.find(item => localPath.indexOf(item) > -1)
+  return !!findItem
+}
+
+
+
 const uploadFile = async (localPath, remotePath, stats) => {
+
+  const isIgnore = getIgnoreFileArr(localPath)
+  if (isIgnore) return
 
   defaultLog(`正在上传 ${localPath} 文件`)
 
@@ -176,6 +196,11 @@ const uploadFile = async (localPath, remotePath, stats) => {
 
 const uploadDirectory = async (localDir, remoteDir) => {
 
+
+  const isIgnore = getIgnoreFileArr(localDir)
+  if (isIgnore) return
+
+
   const files = fs.readdirSync(localDir)
 
   for (let i = 0; i < files.length; i++) {
@@ -227,9 +252,11 @@ const uploadZipBySSH = async () => {
     }
 
     for (let i = 0; i < pathArr.length; i++) {
+
       const localPath = pathArr[i] //path.resolve(__dirname, pathArr[i])
       const stats = fs.statSync(localPath)
       let wwwPath = params['--wwwPath'] || config.wwwPath
+
       if (stats.isFile()) {
         if (wwwPath.indexOf('.' == -1)) {
           wwwPath = wwwPath + '/' + path.basename(localPath)
