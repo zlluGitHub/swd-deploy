@@ -15,6 +15,7 @@ module.exports = Object.freeze({
     username: 'root',
     password: '',
     wwwPath: '',
+    isCompress: true,
     // x[已废弃] distFolder: 'src', // 打包后的文件夹 默认 /dist
     localPath: '', // 新增字段与distFolder一致 默认 /dist
     configPath: '', // deploy.config.js文件路径 默认项目根目录(./)
