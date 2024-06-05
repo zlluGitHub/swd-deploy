@@ -13,8 +13,8 @@ const zipFile = require('compressing') // 压缩zip
 const path = require('path') // nodejs内置路径模块
 const colors = require('ansi-colors');
 
-const node_ssh = require('node-ssh') // ssh连接服务器
-const nodeSSH = new node_ssh()
+const { NodeSSH } = require('node-ssh') // ssh连接服务器
+const nodeSSH = new NodeSSH()
 
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
@@ -44,14 +44,31 @@ const getOption = () => {
 }
 
 let params = getOption()
+const pathHierarchy = params['--config'] || process.cwd()
 
-const pathHierarchy = params['--config'] || '../../' // './'      //脚本到项目的层级  项目/node_modules/deploy-node/index.js
+const getFilePath = () => {
+  let wwwPath = params['--wwwPath'] || config.wwwPath || ""
+  let distDir = config.distFolder || config.localPath || ""
+  // './'      //脚本到项目的层级  项目/node_modules/
+  distDir = path.join(pathHierarchy, distDir)
+  const distZipPath = path.join(distDir, "../", path.basename(distDir) + ".zip")
+  const wwwZipPath = path.join(wwwPath, path.basename(distZipPath))
+  // const distZipPath = path.resolve(__dirname, `${pathHierarchy + distDir}.zip`)
+  // distDir = path.resolve(__dirname, `${pathHierarchy + distDir}`)
+
+  return { distDir, distZipPath, wwwPath, wwwZipPath }
+}
+
+// deploy - node / index.js
 
 let CONFIG = {};
+
 // let isExitConfigFile = true;
 try {
-  CONFIG = require(path.resolve(__dirname, `${pathHierarchy}deploy.config.js`)) // 项目配置
+  CONFIG = require(path.join(pathHierarchy, 'deploy.config.js')) // 项目配置
+  // CONFIG = require(path.resolve(__dirname, `${pathHierarchy}deploy.config.js`)) // 项目配置
 } catch (error) {
+  console.log(error);
   if (params['--host'] && params['--password'] && params['--wwwPath'] && params['--localPath']) {
     // 命令行参数优先级最高
     // isExitConfigFile = false
@@ -66,8 +83,11 @@ try {
 const buildDist = async () => {
   const loading = ora(defaultLog('开始打包项目')).start()
   loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
-  shell.cd(path.resolve(__dirname, pathHierarchy))
-  const res = await shell.exec(params['--build'] || config.build || config.buildShell || 'npm run build') //执行shell 打包命令
+  shell.cd(pathHierarchy)
+  // shell.cd(path.resolve(__dirname, pathHierarchy))
+
+  const exec = params['--build'] || config.build || config.buildShell || 'npm run build'
+  const res = await shell.exec(exec) //执行shell 打包命令
   loading.stop()
   if (res.code === 0) {
     successLog('项目打包成功!')
@@ -79,38 +99,8 @@ const buildDist = async () => {
   }
 }
 
-const getFilePath = async () => {
-  let wwwPath = params['--wwwPath'] || config.wwwPath || ""
-  let distDir = config.distFolder || config.localPath || ""
-  const distZipPath = path.resolve(__dirname, `${pathHierarchy + distDir}.zip`)
-  distDir = path.resolve(__dirname, `${pathHierarchy + distDir}`)
-
-  return { distDir, distZipPath, wwwPath }
-}
 
 
-//压缩代码
-
-//文件夹目录 
-const zipDistDirFile = async () => {
-  // defaultLog('')
-
-  const loading = ora(defaultLog('正在压缩项目')).start()
-  try {
-
-    const { distDir, distZipPath } = getFilePath()
-    // if (!distDir) throw new Error();
-
-    loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
-    await zipFile.zip.compressDir(distDir, distZipPath)
-    // successLog('压缩成功!')
-    loading.stop()
-  } catch (error) {
-    errorLog(error)
-    errorLog('压缩失败, 退出程序!')
-    process.exit() //退出流程
-  }
-}
 
 //线上执行命令
 /**
@@ -127,31 +117,33 @@ const runCommand = async (command) => {
   // defaultLog(result)
 }
 
-//连接服务器
-const connectSSH = async () => {
-  const loading = ora(defaultLog('正在连接服务器')).start()
-  loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
+
+const getConnectSshOption = () => {
   //privateKey 秘钥登录(推荐) 方式一
   //password  密码登录 方式二
   const type = (params['--password'] || config.password) ? 'password' : 'privateKey'
   const data = (params['--password'] || config.password) || config.privateKey
-  const opt = {
+  return {
     host: params['--host'] || config.sshIp || config.host,
     username: params['--username'] || config.username || config.sshUserName || 'root',
     port: params['--port'] || config.port || 22,
     [type]: data,
     tryKeyboard: true,
+    readyTimeout: params['--readyTimeout'] || config.readyTimeout || 60000
   }
   // if (config.readyTimeout) {
-  opt.readyTimeout = params['--readyTimeout'] || config.readyTimeout || 60000
+  // opt.
   // }
+}
 
+
+//连接服务器
+const connectSSH = async () => {
+
+  const loading = ora(defaultLog('正在连接服务器')).start()
   try {
-
-    if (config.isCompress) {
-      await nodeSSH.connect(opt)
-    }
-    await SSH.connect(opt)
+    loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
+    await SSH.connect(getConnectSshOption())
     successLog('服务器连接成功!')
   } catch (error) {
     errorLog('SSH连接失败! (可能原因: 1:密码不对, 2:privateKey 本机私钥地址不对, 3:服务器未配置本机公钥, 4:服务器未安装 SSH 服务或端口), 5:使用命令参数时, 请检查是否配置了 --key 参数')
@@ -226,7 +218,7 @@ const uploadFile = async (localPath, remotePath, stats) => {
     });
     totalTransferredW2 = totalTransferredW1;
   }, 1000)
-  // console.log(localPath);
+  // console.log(localPath, remotePath);
   await SSH.fastPut(localPath, remotePath, {
     step: (totalTransferred, chunk, total) => {
       totalTransferredW1 = totalTransferred;
@@ -309,6 +301,7 @@ const updateDirFile = async () => {
       if (wwwPath.indexOf('.' == -1)) {
         wwwPath = wwwPath + '/' + path.basename(localPath)
       }
+      // console.log(localPath, 9999999, wwwPath);
       await uploadFile(localPath, wwwPath)
     } else if (stats.isDirectory()) {
       await SSH.mkdir(wwwPath, true)
@@ -318,58 +311,109 @@ const updateDirFile = async () => {
   }
 }
 
+//压缩代码 文件夹目录 
+const zipDistDirFile = async () => {
+  // defaultLog('')
+
+  const loading = ora(defaultLog('正在压缩项目...')).start()
+  try {
+
+    const { distDir, distZipPath } = getFilePath()
+    // if (!distDir) throw new Error();
+
+    loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
+
+    await zipFile.zip.compressDir(distDir, distZipPath)
+    // successLog('压缩成功!')
+    loading.stop()
+  } catch (error) {
+    loading.stop()
+
+    errorLog('压缩失败：' + error)
+    // errorLog(', 退出程序!')
+    process.exit() //退出流程
+  }
+}
+
 
 //传送zip文件到服务器
 const uploadZipBySSH = async () => {
-  // let wwwPath = params['--wwwPath'] || config.wwwPath
-  // const { distDir, distZipPath } = getFilePath()
-  // const localPath = config.distFolder || config.localPath || false
+  try {
+    // let wwwPath = params['--wwwPath'] || config.wwwPath
+    // const { distDir, distZipPath } = getFilePath()
+    // const localPath = config.distFolder || config.localPath || false
 
-  // wwwPath = wwwPath + '/' + path.basename(localPath)
+    // wwwPath = wwwPath + '/' + path.basename(localPath)
 
-  const { distZipPath, wwwPath } = getFilePath()
-
-  await uploadFile(distZipPath, wwwPath)
-
+    const { distZipPath, wwwZipPath } = getFilePath()
+    await uploadFile(distZipPath, formatNodePath(wwwZipPath))
+  } catch (error) {
+    errorLog(error)
+    process.exit() //退出流程
+  }
 }
 
 //传送文件到服务器
 const updateConnectZipFile = async () => {
-  //连接ssh
-  await connectSSH()
+
 
   try {
 
     if (config.isCompress) {
       // 压缩文件 
       await zipDistDirFile()
+
+      //连接ssh
+      await connectSSH()
+
+
       // 上传压缩文件
       await uploadZipBySSH()
 
 
-      const { distZipPath, wwwPath } = getFilePath()
+      if (config.isCompress) {
 
-      await runCommand(`unzip ${distZipPath}`) //解压
-      // await runCommand(`rm -rf ${distZipPath}`) //解压完删除线上压缩包
+        const loading = ora(defaultLog('正在解压缩项目...')).start()
+
+        loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
+
+        await nodeSSH.connect(getConnectSshOption())
+        const { wwwZipPath } = getFilePath()
+
+        await runCommand(`unzip -o ${formatNodePath(wwwZipPath)}`) //解压
+
+        await runCommand(`rm -rf ${formatNodePath(wwwZipPath)}`) //解压完删除线上压缩包
+
+        loading.stop()
+      }
+
       //将目标目录的dist里面文件移出到目标文件  
       //举个例子 假如我们部署在 /test/html 这个目录下 只有一个网站, 那么上传解压后的文件在 /test/html/dist 里
       //需要将 dist 目录下的文件 移出到 /test/html   多网站情况, 如 /test/html/h5  或者 /test/html/admin 都和上面同样道理
       // await runCommand(`mv -f ${config.wwwPath}/${config.distFolder}/*  ${config.wwwPath}`)
       // await runCommand(`rm -rf ${config.wwwPath}/${config.distFolder}`) //移出后删除 dist 文件夹
-      nodeSSH.dispose() //断开连接
- 
+
+
     } else {
+
+      //连接ssh
+      await connectSSH()
       // 上传文件
       await updateDirFile()
     }
 
+    SSH.end()
+    nodeSSH.dispose() //断开连接
 
   } catch (error) {
+    SSH.end()
+    nodeSSH.dispose() //断开连接
     errorLog(error)
     errorLog('上传失败，请检查文件或文件夹路径是否正确!')
     process.exit() //退出流程
   }
-  SSH.end(); //断开连接
+
+
   // loading.stop()
 }
 

@@ -54,6 +54,7 @@ module.exports = Object.freeze({
     // x[已废弃] sshIp: '10.0.85.100', 
     host: '127.0.0.1',// 新增字段与 sshIp 一致
     port: 22,
+    isCompress: true, // [新增]是否压缩
      // x[已废弃] sshUserName: 'root',
     username: 'root',
     password: '',
