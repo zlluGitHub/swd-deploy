@@ -13,8 +13,8 @@ const zipFile = require('compressing') // 压缩zip
 const path = require('path') // nodejs内置路径模块
 const colors = require('ansi-colors');
 
-const { NodeSSH } = require('node-ssh') // ssh连接服务器
-const nodeSSH = new NodeSSH()
+// const { NodeSSH } = require('node-ssh') // ssh连接服务器
+// const nodeSSH = new NodeSSH()
 
 //logs
 const defaultLog = log => console.log(chalk.blue(`☀ ${log}`))
@@ -47,16 +47,23 @@ let params = getOption()
 const pathHierarchy = params['--config'] || process.cwd()
 
 const getFilePath = () => {
-  let wwwPath = params['--wwwPath'] || config.wwwPath || ""
-  let distDir = config.distFolder || config.localPath || ""
+  let wwwPath = params['--wwwPath'] || config.wwwPath || "";
+  let distDir = config.distFolder || config.localPath || "";
+
+  if ((!wwwPath) || (wwwPath == '/') || (wwwPath == '\\')) {
+    throw new Error('请输入正确的 wwwPath 路径！')
+  }
+
+  const dirName = path.basename(distDir);
   // './'      //脚本到项目的层级  项目/node_modules/
   distDir = path.join(pathHierarchy, distDir)
-  const distZipPath = path.join(distDir, "../", path.basename(distDir) + ".zip")
+  const distZipPath = path.join(distDir, "../", dirName + ".zip")
+
   const wwwZipPath = path.join(wwwPath, path.basename(distZipPath))
   // const distZipPath = path.resolve(__dirname, `${pathHierarchy + distDir}.zip`)
   // distDir = path.resolve(__dirname, `${pathHierarchy + distDir}`)
 
-  return { distDir, distZipPath, wwwPath, wwwZipPath }
+  return { distDir, distZipPath, wwwPath, wwwZipPath, dirName }
 }
 
 // deploy - node / index.js
@@ -107,13 +114,39 @@ const buildDist = async () => {
  * @param {String} command 命令操作 如 ls
  */
 const runCommand = async (command) => {
-  const { wwwPath } = getFilePath()
-  const result = await nodeSSH.exec(command, [], {
-    cwd: wwwPath
-  }).catch(err => {
-    errorLog(err)
-    process.exit() //退出流程
+  // const { wwwPath } = getFilePath()
+
+  return new Promise((resolve, reject) => {
+    SSH.client.exec(command, (error, stream) => {
+      if (error) {
+        // console.log(error);
+        reject(error)
+        // resolve({ type: 'error', error })
+      } else {
+        stream.on('data', (data) => {
+          // console.log('STDOUT: ' + data)
+          // resolve()
+        }).on('close', (code, signal) => {
+
+          // console.log('Stream :: close :: code: ' + code + ', signal: ' + signal)
+          // // reject(error)
+          // // terminal[params.id].end()
+          // resolve({ type: 'close' })
+          resolve()
+        }).stderr.on('data', (data) => {
+          // console.log('STDERR: ' + data)
+          // reject('STDERR：' + data)
+        })
+      }
+    })
   })
+
+  // const result = await nodeSSH.exec(command, [], {
+  //   cwd: wwwPath
+  // }).catch(err => {
+  //   errorLog(err)
+  //   process.exit() //退出流程
+  // })
   // defaultLog(result)
 }
 
@@ -377,12 +410,17 @@ const updateConnectZipFile = async () => {
 
         loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
 
-        await nodeSSH.connect(getConnectSshOption())
-        const { wwwZipPath } = getFilePath()
+        // await nodeSSH.connect(getConnectSshOption())
+        const { wwwZipPath, dirName, wwwPath } = getFilePath()
+        const remPathZip = formatNodePath(wwwZipPath)
+        const wwwPathDist = formatNodePath(wwwPath)
+        // console.log(remPathZip);
 
-        await runCommand(`unzip -o ${formatNodePath(wwwZipPath)}`) //解压
+        await runCommand(`unzip -oq ${remPathZip} -d ${wwwPathDist}`) //解压
+        await runCommand(`mv -f ${wwwPathDist}/${dirName}/* ${wwwPathDist}`) //移动
 
-        await runCommand(`rm -rf ${formatNodePath(wwwZipPath)}`) //解压完删除线上压缩包
+        await runCommand(`rm -rf ${wwwPathDist}/${dirName}`) //解压完删除线上压缩包
+        await runCommand(`rm -f ${remPathZip}`) //解压完删除线上压缩包
 
         loading.stop()
       }
@@ -392,6 +430,7 @@ const updateConnectZipFile = async () => {
       //需要将 dist 目录下的文件 移出到 /test/html   多网站情况, 如 /test/html/h5  或者 /test/html/admin 都和上面同样道理
       // await runCommand(`mv -f ${config.wwwPath}/${config.distFolder}/*  ${config.wwwPath}`)
       // await runCommand(`rm -rf ${config.wwwPath}/${config.distFolder}`) //移出后删除 dist 文件夹
+      // await runCommand(`rm -f ${config.wwwPath}/${config.distFolder}`) //移出后删除 dist 文件夹
 
 
     } else {
@@ -403,11 +442,11 @@ const updateConnectZipFile = async () => {
     }
 
     SSH.end()
-    nodeSSH.dispose() //断开连接
+    // nodeSSH.dispose() //断开连接
 
   } catch (error) {
     SSH.end()
-    nodeSSH.dispose() //断开连接
+    // nodeSSH.dispose() //断开连接
     errorLog(error)
     errorLog('上传失败，请检查文件或文件夹路径是否正确!')
     process.exit() //退出流程
