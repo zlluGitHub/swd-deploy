@@ -121,22 +121,19 @@ const runCommand = async (command) => {
       if (error) {
         // console.log(error);
         reject(error)
-        // resolve({ type: 'error', error })
+        resolve({ type: 'error', error })
       } else {
+        let output = '';
         stream.on('data', (data) => {
-          // console.log('STDOUT: ' + data)
-          // resolve()
+          output += data; 
+        }).on('end', () => {
+          // defaultLog(output)
+          resolve(output)
+          // console.log(output);
         }).on('close', (code, signal) => {
-
-          // console.log('Stream :: close :: code: ' + code + ', signal: ' + signal)
-          // // reject(error)
-          // // terminal[params.id].end()
-          // resolve({ type: 'close' })
-          resolve()
-        }).stderr.on('data', (data) => {
-          // console.log('STDERR: ' + data)
-          // reject('STDERR：' + data)
+          // console.log('Stream close!')
         })
+
       }
     })
   })
@@ -378,8 +375,8 @@ const uploadZipBySSH = async () => {
 
     // wwwPath = wwwPath + '/' + path.basename(localPath)
 
-    const { distZipPath, wwwZipPath } = getFilePath()
-    await uploadFile(distZipPath, formatNodePath(wwwZipPath))
+    const { distZipPath, wwwZipPath, dirName } = getFilePath()
+    await uploadFile(formatNodePath(distZipPath), config.isCompress ? `/root/.swd_deploy/${dirName}.zip` : wwwZipPath)
   } catch (error) {
     errorLog(error)
     process.exit() //退出流程
@@ -391,38 +388,45 @@ const updateConnectZipFile = async () => {
 
 
   try {
+    // 压缩文件 
+    await zipDistDirFile()
+
+    //连接ssh
+    await connectSSH()
 
     if (config.isCompress) {
-      // 压缩文件 
-      await zipDistDirFile()
 
-      //连接ssh
-      await connectSSH()
-
+      // 创建临时目录
+      await runCommand(`rm -rf /root/.swd_deploy`)
+      await runCommand(`mkdir /root/.swd_deploy`)
 
       // 上传压缩文件
       await uploadZipBySSH()
 
-
       if (config.isCompress) {
+        const { wwwZipPath, dirName, wwwPath, distDir } = getFilePath()
 
-        const loading = ora(defaultLog('正在解压缩项目...')).start()
+        const loading = ora(defaultLog(`正在解压缩 ${dirName}.zip 文件...`)).start()
 
         loading.spinner = spinner_style[config.loadingStyle || 'arrow4']
 
         // await nodeSSH.connect(getConnectSshOption())
-        const { wwwZipPath, dirName, wwwPath } = getFilePath()
-        const remPathZip = formatNodePath(wwwZipPath)
+        // const remPathZip = formatNodePath(wwwZipPath)
         const wwwPathDist = formatNodePath(wwwPath)
         // console.log(remPathZip);
 
-        await runCommand(`unzip -oq ${remPathZip} -d ${wwwPathDist}`) //解压
-        await runCommand(`mv -f ${wwwPathDist}/${dirName}/* ${wwwPathDist}`) //移动
-
-        await runCommand(`rm -rf ${wwwPathDist}/${dirName}`) //解压完删除线上压缩包
-        await runCommand(`rm -f ${remPathZip}`) //解压完删除线上压缩包
+        await runCommand(`rm -rf ${wwwPathDist}`)
+        await runCommand(`mkdir ${wwwPathDist}`)
+        await runCommand(`unzip -o /root/.swd_deploy/${dirName}.zip -d /root/.swd_deploy`) //解压
+        await runCommand(`mv -f /root/.swd_deploy/${dirName}/* ${wwwPathDist}`) //移动
+        await runCommand(`rm -rf /root/.swd_deploy`)
 
         loading.stop()
+        
+        successLog(`文件 ${dirName}.zip 解压成功！`)
+        // await runCommand(`rm -rf ${wwwPathDist}/${dirName}`) //解压完删除线上压缩包
+        // await runCommand(`rm -rf /root/.swd_deploy`) //解压完删除线上压缩包
+
       }
 
       //将目标目录的dist里面文件移出到目标文件  
@@ -434,9 +438,6 @@ const updateConnectZipFile = async () => {
 
 
     } else {
-
-      //连接ssh
-      await connectSSH()
       // 上传文件
       await updateDirFile()
     }
